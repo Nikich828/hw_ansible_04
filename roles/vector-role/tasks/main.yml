@@ -1,0 +1,47 @@
+---
+- name: Vector | Download package
+  ansible.builtin.get_url:
+    url: "https://packages.timber.io/vector/{{ vector_version }}/vector-{{ vector_version }}-1.x86_64.rpm"
+    dest: "./vector-{{ vector_version }}-1.x86_64.rpm"
+
+- name: Vector | Install package
+  become: true
+  ansible.builtin.yum:
+    name: "./vector-{{ vector_version }}-1.x86_64.rpm"
+    disable_gpg_check: true
+
+- name: Vector | Create config directory
+  become: true
+  ansible.builtin.file:
+    path: "{{ vector_config_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Vector | Apply config template
+  become: true
+  ansible.builtin.template:
+    src: vector.yml.j2
+    dest: "{{ vector_config_dir }}/vector.yml"
+    mode: "0644"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
+    validate: vector validate --no-environment --config-yaml %s
+  notify: restart vector
+
+- name: Vector | Apply systemd service template
+  become: true
+  ansible.builtin.template:
+    src: vector.service.j2
+    dest: /usr/lib/systemd/system/vector.service
+    mode: "0644"
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
+    backup: true
+  notify: restart vector
+
+- name: Vector | Start and enable service
+  become: true
+  ansible.builtin.service:
+    name: vector
+    state: started
+    enabled: true

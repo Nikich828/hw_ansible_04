@@ -1,0 +1,42 @@
+---
+- name: Install Clickhouse
+  hosts: clickhouse
+  roles:
+    - role: clickhouse
+      vars:
+        clickhouse_version: "22.3.3.44"
+        clickhouse_packages:
+          - clickhouse-client
+          - clickhouse-server
+          - clickhouse-common-static
+  post_tasks:
+    - name: Create database logs
+      ansible.builtin.command: "clickhouse-client -q 'create database logs;'"
+      register: create_db
+      failed_when: create_db.rc != 0 and create_db.rc != 82
+      changed_when: create_db.rc == 0
+
+    - name: Clickhouse | Allow remote connections
+      become: true
+      ansible.builtin.lineinfile:
+        path: /etc/clickhouse-server/config.xml
+        regexp: '<!-- <listen_host>::</listen_host> -->'
+        line: '    <listen_host>::</listen_host>'
+      notify: Start clickhouse service
+
+  handlers:
+    - name: Start clickhouse service
+      become: true
+      ansible.builtin.service:
+        name: clickhouse-server
+        state: restarted
+
+- name: Install Vector
+  hosts: vector
+  roles:
+    - role: vector-role
+
+- name: Install Lighthouse
+  hosts: lighthouse
+  roles:
+    - role: lighthouse-role

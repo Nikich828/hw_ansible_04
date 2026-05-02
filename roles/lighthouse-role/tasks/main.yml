@@ -1,0 +1,64 @@
+---
+- name: Lighthouse | Install git
+  become: true
+  ansible.builtin.yum:
+    name: git
+    state: present
+
+- name: Lighthouse | Install epel-release
+  become: true
+  ansible.builtin.yum:
+    name: epel-release
+    state: present
+
+- name: Lighthouse | Install nginx
+  become: true
+  ansible.builtin.yum:
+    name: nginx
+    state: present
+
+- name: Lighthouse | Apply main nginx config
+  become: true
+  ansible.builtin.template:
+    src: nginx.conf.j2
+    dest: /etc/nginx/nginx.conf
+    mode: '0644'
+  notify: reload nginx
+
+- name: Lighthouse | Clone repository
+  ansible.builtin.git:
+    repo: "{{ lighthouse_url }}"
+    dest: "{{ lighthouse_dir }}"
+    version: master
+    force: true
+
+- name: Lighthouse | Set permissions
+  become: true
+  ansible.builtin.file:
+    path: "{{ lighthouse_dir }}"
+    state: directory
+    owner: "{{ ansible_user_id }}"
+    group: "{{ lighthouse_nginx_user }}"
+    mode: '0755'
+    recurse: true
+
+- name: Lighthouse | Set SELinux context
+  become: true
+  ansible.builtin.command: "chcon -R -t httpd_sys_content_t {{ lighthouse_dir }}"
+  when: ansible_selinux.status == "enabled"
+  changed_when: false
+
+- name: Lighthouse | Apply lighthouse config
+  become: true
+  ansible.builtin.template:
+    src: lighthouse_nginx.conf.j2
+    dest: /etc/nginx/conf.d/lighthouse.conf
+    mode: '0644'
+  notify: reload nginx
+
+- name: Lighthouse | Start and enable nginx
+  become: true
+  ansible.builtin.service:
+    name: nginx
+    state: started
+    enabled: true

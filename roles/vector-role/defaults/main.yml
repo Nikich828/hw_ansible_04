@@ -1,0 +1,22 @@
+---
+vector_version: "0.22.1"
+vector_config_dir: "/etc/vector"
+vector_config:
+  api:
+    enabled: true
+    address: "0.0.0.0:8686"
+  sources:
+    demo_logs:
+      type: demo_logs
+      format: syslog
+  sinks:
+    to_clickhouse:
+      type: clickhouse
+      inputs:
+        - demo_logs
+      database: logs
+      endpoint: "http://111.88.251.98:8123"
+      table: vector_table
+      compression: gzip
+      healthcheck: true
+      skip_unknown_fields: true
